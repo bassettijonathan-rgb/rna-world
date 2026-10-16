@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Unit tests
+        run: npm test
+      - name: Build the single-file page (and check dist/ is up to date)
+        run: |
+          npm run build
+          git diff --exit-code dist/
+      - name: Page runs in a sandboxed frame at desktop and phone width
+        run: |
+          npx playwright install --with-deps chromium
+          node test/browser/artifact-check.mjs
+      - name: Long headless run and the five validation checks
+        run: node test/long-run.mjs
