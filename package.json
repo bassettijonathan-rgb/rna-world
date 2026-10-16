@@ -1,0 +1,19 @@
+{
+  "name": "rna-world",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Random RNA strands on warm clay: replicases, parasites, spiral waves and vesicles emerge on their own.",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build-artifact.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:long": "node test/long-run.mjs",
+    "check:browser": "node tools/build-artifact.mjs && node test/browser/artifact-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

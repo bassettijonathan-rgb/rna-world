@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- head:start -->
+<title>RNA World</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Random RNA strands on warm clay. Replicases, parasites, spiral waves and vesicles emerge on their own.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<!-- head:end -->
+<link rel="stylesheet" href="src/app/style.css">
+</head>
+<body>
+<!-- body:start -->
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <h1>RNA <span>World</span></h1>
+      <p>Random strands on warm clay. Nothing is told to copy itself.</p>
+    </div>
+    <div class="readout" aria-live="off">
+      <span>step <b id="r-step">0</b></span>
+      <span><span class="thermo" aria-hidden="true"><i id="r-thermo"></i></span> <b id="r-temp">25</b> °C</span>
+      <span><b id="r-rate">0</b> steps/s</span>
+    </div>
+    <div class="transport">
+      <button class="btn primary" id="b-play" type="button">Play</button>
+      <button class="btn" id="b-step" type="button" title="Advance 10 steps">+10</button>
+    </div>
+  </header>
+
+  <section class="scope" aria-label="Microscope view of the surface">
+    <div class="field" id="field" data-tool="look">
+      <canvas id="view" aria-label="The mineral surface. Drag to move, pinch or scroll to zoom, tap a strand to inspect it."></canvas>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="scale" id="scale"></div>
+    <div class="cards" id="cards"></div>
+    <div class="tools" role="group" aria-label="Tools">
+      <button class="chip" type="button" data-tool="look" aria-pressed="true">Look</button>
+      <button class="chip" type="button" data-tool="pour" aria-pressed="false">Pour food</button>
+      <button class="chip" type="button" data-tool="stir" aria-pressed="false">Stir</button>
+    </div>
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button class="chip round" type="button" id="z-in" aria-label="Zoom in">+</button>
+      <button class="chip round" type="button" id="z-out" aria-label="Zoom out">−</button>
+      <button class="chip round" type="button" id="z-fit" aria-label="Show the whole surface">◯</button>
+    </div>
+  </section>
+
+  <section class="bench" aria-label="Lab bench">
+    <div class="tabs" role="tablist">
+      <button role="tab" type="button" id="t-lab" aria-selected="true" aria-controls="p-lab">Lab</button>
+      <button role="tab" type="button" id="t-life" aria-selected="false" aria-controls="p-life">Life</button>
+      <button role="tab" type="button" id="t-strand" aria-selected="false" aria-controls="p-strand">Strand</button>
+      <button role="tab" type="button" id="t-checks" aria-selected="false" aria-controls="p-checks">Checks</button>
+      <button role="tab" type="button" id="t-log" aria-selected="false" aria-controls="p-log">Log</button>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-lab" aria-labelledby="t-lab">
+      <div class="group">
+        <h2>Start from</h2>
+        <div class="presets" id="presets"></div>
+        <div class="seed">
+          <input id="seed" type="text" spellcheck="false" autocomplete="off" aria-label="Seed" value="clay">
+          <button class="btn" type="button" id="b-dice" title="Pick a new seed">New seed</button>
+          <button class="btn" type="button" id="b-restart">Restart</button>
+        </div>
+        <p class="note">The same seed and settings give the same run, step for step.</p>
+      </div>
+      <div class="group">
+        <h2>World</h2>
+        <div class="row">
+          <div class="seg" role="group" aria-label="World">
+            <button type="button" data-world="surface" aria-pressed="true">Clay surface</button>
+            <button type="button" data-world="vesicles" aria-pressed="false">Vesicles</button>
+          </div>
+          <label class="switch"><input type="checkbox" id="well-mixed"> Well mixed</label>
+        </div>
+        <div class="row">
+          <span class="note">Colour by</span>
+          <div class="seg" role="group" aria-label="Colour by">
+            <button type="button" data-mode="lineage" aria-pressed="true">Family</button>
+            <button type="button" data-mode="role" aria-pressed="false">Role</button>
+            <button type="button" data-mode="food" aria-pressed="false">Food</button>
+          </div>
+        </div>
+      </div>
+      <div class="group" id="sliders">
+        <h2>Conditions</h2>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-life" aria-labelledby="t-life" hidden>
+      <div class="census" id="census"></div>
+      <div class="group">
+        <h2>Population</h2>
+        <canvas class="chart" id="pop" height="180"></canvas>
+        <p class="note">Log scale. The strip underneath is the temperature cycle; strands only copy in its cool part.</p>
+      </div>
+      <div class="group">
+        <h2>Family tree</h2>
+        <canvas class="chart" id="tree" height="260"></canvas>
+        <p class="note" id="tree-note">Each line is a family of copies, from its first strand to its last. A family branches off when a copying error changes what its strands do.</p>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-strand" aria-labelledby="t-strand" hidden>
+      <div id="inspector">
+        <p class="empty">Zoom in and tap a strand to see how it folds.</p>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-checks" aria-labelledby="t-checks" hidden>
+      <div class="group">
+        <p class="note">Five experiments that the real chemistry is known for, run with this simulation's own rules. They run in the background and take a few minutes; the simulation keeps going.</p>
+        <div class="row">
+          <button class="btn primary" type="button" id="b-validate">Run the checks</button>
+          <span class="note" id="v-status"></span>
+        </div>
+      </div>
+      <div class="group" id="checks"></div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-log" aria-labelledby="t-log" hidden>
+      <ul class="log" id="log"></ul>
+      <p class="empty" id="log-empty">Milestones show up here as they happen: the first replicase, the first parasite takeover, the first hypercycle, spiral waves, the first vesicle division.</p>
+    </div>
+  </section>
+</div>
+<!-- body:end -->
+<script type="module" src="src/app/main.js"></script>
+</body>
+</html>
