@@ -68,8 +68,8 @@ export function renderInspector(root, info) {
   const cv = root.querySelector('#foldbox');
   requestAnimationFrame(() => {
     const { ctx, w, h } = prepCanvas(cv, cv.clientHeight || 260);
-    const marks = [{ from: tagFrom, to: L - 1, color: '#ffcd6e' }];
-    if (loopFrom >= 0) marks.push({ from: loopFrom, to: loopFrom + 3, color: '#78ffd6' });
+    const marks = [{ from: tagFrom, to: L - 1, color: '#ffcd6e', label: '3′ tag' }];
+    if (loopFrom >= 0) marks.push({ from: loopFrom, to: loopFrom + 3, color: '#78ffd6', label: 'recognition loop' });
     drawFold(ctx, s.db, 8, 8, w - 16, h - 16, { seq: s.seq, letters: true, marks, ends: true, color: 'rgba(200,235,255,0.75)' });
   });
 }

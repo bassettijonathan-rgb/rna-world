@@ -56,8 +56,8 @@ select {
 
 .app {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px 18px;
   height: 100%;
   padding-block: 12px;
@@ -161,6 +161,58 @@ select {
   border-color: rgba(120, 255, 214, 0.6);
   color: var(--mint);
   background: rgba(120, 255, 214, 0.08);
+}
+
+/* ---- the narrator ---- */
+.narrator {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  max-width: 78ch;
+}
+
+.narrator p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.narrator p:first-child {
+  color: var(--ink);
+}
+
+.n-label {
+  display: inline-block;
+  min-width: 44px;
+  font: 600 10.5px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+
+.narrator p + p .n-label {
+  color: var(--gold);
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(360px, 80%);
+  background: rgba(8, 18, 22, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: center;
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* ---- the microscope field ---- */
@@ -312,6 +364,28 @@ select {
   font: 600 15px/1.2 var(--display);
 }
 
+.card-foot {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin-top: 6px;
+}
+
+.card-foot small {
+  margin-right: auto;
+}
+
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--mint);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .card p {
   margin: 0;
   font-size: 13px;
@@ -332,6 +406,8 @@ select {
 
 /* ---- the bench ---- */
 .bench {
+  grid-column: 2;
+  grid-row: 2 / 4;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -528,6 +604,236 @@ select {
   height: 16px;
 }
 
+/* ---- learn tab ---- */
+.chapters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chap {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bench-2);
+  cursor: pointer;
+  font: 500 12px/1 var(--mono);
+  color: var(--ink-2);
+  padding: 0;
+}
+
+.chap[aria-current='true'] {
+  border-color: var(--mint);
+  color: var(--mint);
+  box-shadow: 0 0 10px rgba(120, 255, 214, 0.25);
+}
+
+.chap i {
+  position: absolute;
+  right: -3px;
+  top: -4px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--bg);
+  background: var(--mint);
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+}
+
+.lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson .eyebrow {
+  margin: 0;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.lesson h3 {
+  margin: 0;
+  font: 650 21px/1.15 var(--display);
+  text-wrap: balance;
+}
+
+.lesson p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+.tries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tries .btn {
+  border-color: rgba(127, 216, 255, 0.35);
+  color: var(--sky);
+}
+
+.goal {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.goal b {
+  color: var(--gold);
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.goal .tick {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.goal[data-done='true'] {
+  border-style: solid;
+  border-color: rgba(120, 255, 214, 0.45);
+}
+
+.goal[data-done='true'] b {
+  color: var(--mint);
+}
+
+.goal[data-done='true'] .tick {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--bg);
+}
+
+.predict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bench-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.predict .q {
+  color: var(--ink);
+}
+
+.predict .n-label {
+  color: var(--sky);
+  min-width: 0;
+  margin-right: 6px;
+}
+
+.guesses {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guess {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bench);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.guess:hover {
+  border-color: #2c454e;
+}
+
+.guess[data-mark='right'] {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.guess[data-mark='wrong'] {
+  border-color: var(--coral);
+  color: var(--coral);
+}
+
+.predict .why {
+  font-size: 13.5px;
+}
+
+.predict .why b {
+  color: var(--ink);
+}
+
+.lesson-nav {
+  justify-content: space-between;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.words summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.words summary h2 {
+  display: inline;
+}
+
+.words summary::after {
+  content: ' +';
+  color: var(--ink-3);
+}
+
+.words[open] summary::after {
+  content: ' −';
+}
+
+.glossary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.glossary dt {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.glossary dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.back {
+  align-self: flex-start;
+}
+
 /* ---- life tab ---- */
 .census {
   display: grid;
@@ -536,6 +842,12 @@ select {
 }
 
 .stat {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  padding: 4px 6px;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -545,6 +857,11 @@ select {
   font: 500 18px/1.1 var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--c, var(--ink));
+}
+
+.stat[aria-pressed='true'] {
+  border-color: var(--line);
+  background: var(--bench-2);
 }
 
 .stat span {
@@ -638,6 +955,15 @@ select {
 
 .seq.db {
   color: var(--ink-3);
+}
+
+.gone {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 122, 140, 0.4);
+  color: var(--coral);
+  font-size: 13px;
 }
 
 .empty {
@@ -779,8 +1105,17 @@ select {
 
   .app {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto auto auto;
     height: auto;
+  }
+
+  .bench {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .narrator p {
+    font-size: 13px;
   }
 
   .field {

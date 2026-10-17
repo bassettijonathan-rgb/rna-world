@@ -6,6 +6,7 @@ import { drawPopulation, drawTree, drawCheckChart } from './charts.js';
 import { renderInspector } from './inspector.js';
 import { PRESETS } from '../sim/engine.js';
 import { DEFAULTS, RANGES, K } from '../sim/params.js';
+import { CHAPTERS, GLOSSARY, STAT_HELP, makeGoals, trackGoals, narrate } from './guide.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -60,6 +61,11 @@ const state = {
   rate: 60,
   stepTimes: [],
   dirtyCharts: true,
+  goals: makeGoals(),
+  chapter: 0,
+  done: new Set(),
+  guesses: {},
+  fromGuide: false,
 };
 
 // ---------------------------------------------------------------- view
@@ -70,6 +76,7 @@ const view = new View($('view'), {
     else view.selected = null;
     state.inspectAt = [x, y];
     state.wantInspect = true;
+    state.fromGuide = state.tab === 'learn';
     selectTab('strand');
   },
   onTool(tool, x, y) {
@@ -133,6 +140,7 @@ function selectTab(id) {
     $(t.getAttribute('aria-controls')).hidden = !on;
   }
   if (id === 'log') $('t-log').querySelector('.dot')?.remove();
+  $('back-guide').hidden = !(id === 'strand' && state.fromGuide);
   state.dirtyCharts = true;
   store.set('tab', id);
 }
@@ -267,6 +275,9 @@ function restart({ preset = state.preset }) {
   $('cards').innerHTML = '';
   renderInspector($('inspector'), null);
   syncSliders();
+  state.goals.mixedFrom = 0;
+  state.goals.errorFrom = 0;
+  state.goals.hotSeen = false;
   state.host.send({ type: 'reset', seed: state.seed, preset });
   state.host.send({ type: 'params', patch: state.params });
   store.set('preset', preset);
@@ -277,6 +288,7 @@ function restart({ preset = state.preset }) {
 
 function onMessage(m) {
   if (m.type === 'frame') onFrame(m);
+  else if (m.type === 'located') onLocated(m);
 }
 
 function onFrame(f) {
@@ -305,9 +317,28 @@ function onFrame(f) {
   }
   for (const e of f.events ?? []) addEvent(e, true);
   if (f.inspect) {
-    state.inspectInfo = f.inspect;
-    renderInspector($('inspector'), f.inspect);
+    if (f.inspect.gone) {
+      // Keep the last picture and say what happened.
+      state.inspectGone = true;
+      $('inspector').querySelector('.gone')?.remove();
+      $('inspector').insertAdjacentHTML('afterbegin', '<p class="gone">This strand is gone: it broke down, snapped in two or was joined to another. Tap another strand.</p>');
+    } else {
+      state.inspectGone = false;
+      if (f.inspect.strand && state.world === 'surface' && f.inspect.x !== undefined) {
+        // It may have stepped to a neighbouring site.
+        state.inspectAt = [f.inspect.x + 0.5, f.inspect.y + 0.5];
+        view.selected = [f.inspect.x, f.inspect.y];
+      }
+      state.inspectInfo = f.inspect;
+      renderInspector($('inspector'), f.inspect);
+    }
   }
+  trackGoals(state.goals, f, state.params, CHAPTERS[state.chapter].id);
+  updateGuideProgress();
+  // Say so at once when the warm spell starts or ends.
+  const hot = f.T > K.activeBelow;
+  updateNarrator(hot !== state.wasHot);
+  state.wasHot = hot;
   // Readout.
   $('r-step').textContent = f.step.toLocaleString('en');
   $('r-temp').textContent = Math.round(f.T);
@@ -337,8 +368,19 @@ function addEvent(e, fresh) {
     card.className = 'card';
     card.dataset.kind = e.id;
     card.setAttribute('role', 'status');
-    card.innerHTML = `<h3>${e.title}</h3><p>${e.text}</p><small>step ${e.step.toLocaleString('en')}</small>`;
-    card.onclick = () => card.remove();
+    const show = { replicase: 'replicase', parasite: 'parasite', spiral: 'spiral', vesicle: 'replicase', hypercycle: 'replicase' }[e.id];
+    const chap = CHAPTER_FOR_EVENT[e.id];
+    card.innerHTML = `<h3>${e.title}</h3><p>${e.text}</p><div class="card-foot"><small>step ${e.step.toLocaleString('en')}</small>${show ? '<button type="button" class="link" data-act="show">Show me</button>' : ''}${chap !== undefined ? '<button type="button" class="link" data-act="explain">Explain</button>' : ''}</div>`;
+    card.onclick = (ev) => {
+      const act = ev.target.closest('[data-act]')?.dataset.act;
+      if (act === 'show') api.showMe(show);
+      else if (act === 'explain') {
+        state.chapter = chap;
+        renderGuide();
+        selectTab('learn');
+      }
+      card.remove();
+    };
     $('cards').appendChild(card);
     while ($('cards').children.length > 2) $('cards').firstChild.remove();
     setTimeout(() => card.remove(), 9000);
@@ -358,7 +400,7 @@ function updateCensus() {
     ['Copying now', c.busy, 'var(--ink)'],
     [c.vesicles !== undefined ? 'Vesicles' : 'Families of 12+', c.vesicles ?? (state.tree ? state.tree.lineages.filter((l) => l.died < 0).length : 0), 'var(--sky)'],
   ];
-  $('census').innerHTML = items.map(([l, v, col]) => `<div class="stat" style="--c:${col}"><b>${(v ?? 0).toLocaleString('en')}</b><span>${l}</span></div>`).join('');
+  $('census').innerHTML = items.map(([l, v, col]) => `<button type="button" class="stat" data-stat="${l}" aria-pressed="${state.statHelp === l}" style="--c:${col}"><b>${(v ?? 0).toLocaleString('en')}</b><span>${l}</span></button>`).join('');
 }
 
 let lastCharts = 0;
@@ -370,8 +412,10 @@ function loop(t) {
     const msg = { type: 'frame', mode: state.mode };
     const reg = view.visibleRegion();
     if (reg) msg.region = reg;
-    if (state.inspectAt && (state.wantInspect || (state.tab === 'strand' && state.running && t - (state.lastInspect ?? 0) > 1000))) {
-      msg.inspect = state.inspectAt;
+    if (state.inspectAt && (state.wantInspect || (state.tab === 'strand' && state.running && !state.inspectGone && t - (state.lastInspect ?? 0) > 1000))) {
+      // A refresh follows the strand on show; a new tap looks at the spot.
+      const follow = state.wantInspect ? undefined : state.inspectInfo?.strand?.seq;
+      msg.inspect = [...state.inspectAt, follow];
       state.wantInspect = false;
       state.lastInspect = t;
     }
@@ -446,6 +490,8 @@ $('b-validate').onclick = async () => {
       const bar = $(`c-${m.id}`)?.querySelector('.bar i');
       if (bar) bar.style.width = `${Math.round(m.frac * 100)}%`;
     } else if (m.type === 'vdone') {
+      state.goals.ranChecks = true;
+      updateGuideProgress();
       const passed = m.rows.filter((r) => r.pass).length;
       $('v-status').textContent = `${passed} of ${m.rows.length} passed in ${Math.round((performance.now() - started) / 1000)} s`;
       btn.disabled = false;
@@ -478,8 +524,11 @@ async function start() {
   syncSliders();
   updateScale();
   renderCheckShells();
+  loadGuide();
+  renderGuide();
+  renderGlossary();
   const tab = store.get('tab');
-  if (tab && $(`t-${tab}`) && tab !== 'strand') selectTab(tab);
+  selectTab(tab && $(`t-${tab}`) && tab !== 'strand' ? tab : 'learn');
   state.host = await createHost(onMessage);
   document.documentElement.dataset.host = state.host.kind;
   state.host.send({ type: 'init', seed: state.seed, preset: state.preset, size: 128 });
@@ -488,6 +537,198 @@ async function start() {
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (!reduce) setRunning(true);
 }
+
+// ---------------------------------------------------------------- learning
+
+const CHAPTER_FOR_EVENT = { replicase: 3, parasite: 4, spiral: 5, vesicle: 7, extinct: 5 };
+
+// What the guide's buttons can do.
+const api = {
+  restart(preset) {
+    restart({ preset });
+    if (!state.running) setRunning(true);
+  },
+  setParam(key, v) {
+    state.params[key] = v;
+    state.host?.send({ type: 'params', patch: { [key]: v } });
+    syncSliders();
+    note(key === 'wellMixed' ? (v ? 'Well mixed is on: the whole surface is stirred every step.' : 'Well mixed is off.') : `${SLIDERS.find((x) => x.key === key)?.label ?? key} set to ${SLIDERS.find((x) => x.key === key)?.fmt(v) ?? v}.`);
+  },
+  setRate(v) {
+    state.rate = v;
+    syncRate();
+    setRunning(true);
+  },
+  setMode(m) {
+    document.querySelector(`[data-mode="${m}"]`)?.click();
+  },
+  zoomClose() {
+    view.flyTo(view.cam.x, view.cam.y, 34);
+    showField();
+    note('Zoomed in. Each strand is drawn as its fold. Tap one.');
+  },
+  showMe(kind) {
+    if (kind === 'spiral') {
+      const c = state.last?.cores?.[0];
+      if (c) {
+        view.flyTo(c.x, c.y, 6);
+        api.setMode('role');
+        showField();
+        note('A spiral core: replicases, parasites and bare clay turn around this point.');
+      } else note('No spiral core on the surface right now.');
+      return;
+    }
+    state.host?.send({ type: 'locate', kind });
+  },
+  openTab(id) {
+    selectTab(id);
+  },
+};
+
+function onLocated(m) {
+  const names = { replicase: 'replicase', parasite: 'parasite', busy: 'strand being copied', duplex: 'double strand' };
+  if (!m.at) {
+    note(`There is no ${names[m.kind] ?? 'strand'} on the surface right now. Let it run a little.`);
+    return;
+  }
+  if (m.at.vesicle) {
+    view.flyTo(m.at.x, m.at.y, 12);
+    view.selected = null;
+  } else {
+    view.flyTo(m.at.x + 0.5, m.at.y + 0.5, 40);
+    view.selected = [m.at.x, m.at.y];
+  }
+  state.inspectAt = [m.at.x + 0.5, m.at.y + 0.5];
+  state.wantInspect = true;
+  state.fromGuide = state.tab === 'learn';
+  selectTab('strand');
+}
+
+// On a phone the field can be scrolled out of sight while reading the
+// guide; bring it back when a button changes what it shows.
+function showField() {
+  const r = $('field').getBoundingClientRect();
+  if (r.bottom < 80 || r.top > window.innerHeight - 80) $('field').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// A short line over the field that fades out.
+function note(text) {
+  const el = $('toast');
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(note.timer);
+  note.timer = setTimeout(() => (el.hidden = true), 4500);
+}
+
+let lastNarration = 0;
+function updateNarrator(force) {
+  const now = performance.now();
+  if (!force && now - lastNarration < 1200) return;
+  lastNarration = now;
+  const n = narrate(state);
+  if ($('n-now').textContent !== n.now) $('n-now').textContent = n.now;
+  if ($('n-trend').textContent !== n.trend) $('n-trend').textContent = n.trend;
+}
+
+function loadGuide() {
+  try {
+    const g = JSON.parse(store.get('guide') ?? 'null');
+    if (g) {
+      state.chapter = Math.max(0, Math.min(CHAPTERS.length - 1, g.chapter | 0));
+      state.done = new Set(g.done ?? []);
+    }
+  } catch {
+    /* start fresh */
+  }
+}
+
+function saveGuide() {
+  store.set('guide', JSON.stringify({ chapter: state.chapter, done: [...state.done] }));
+}
+
+const ctx = { hasEvent: (id) => state.events.some((e) => e.id === id), preset: () => state.preset };
+
+function updateGuideProgress() {
+  let changed = false;
+  CHAPTERS.forEach((c) => {
+    if (!state.done.has(c.id) && c.goal.done(state.goals, ctx)) {
+      state.done.add(c.id);
+      changed = true;
+      if (c === CHAPTERS[state.chapter]) note(`Done: ${c.goal.text}`);
+    }
+  });
+  if (changed) {
+    saveGuide();
+    renderGuide();
+  }
+}
+
+function renderGuide() {
+  const c = CHAPTERS[state.chapter];
+  const done = state.done.has(c.id);
+  $('chapters').innerHTML = CHAPTERS.map(
+    (x, k) => `<button type="button" class="chap" data-chap="${k}" aria-current="${k === state.chapter}" title="${x.title}"><span>${k + 1}</span>${state.done.has(x.id) ? '<i aria-label="done">✓</i>' : ''}</button>`,
+  ).join('');
+  $('lesson').innerHTML = `
+    <p class="eyebrow">Chapter ${state.chapter + 1} of ${CHAPTERS.length}</p>
+    <h3>${c.title}</h3>
+    ${c.body.map((p) => `<p>${p}</p>`).join('')}
+    ${c.predict ? renderPredict(c) : ''}
+    <div class="tries">${c.tries.map((t, k) => `<button type="button" class="btn" data-try="${k}">${t.label}</button>`).join('')}</div>
+    <div class="goal" data-done="${done}"><span class="tick" aria-hidden="true">${done ? '✓' : ''}</span><span><b>${done ? 'Done' : 'Watch for'}</b> ${c.goal.text}</span></div>
+    <div class="row lesson-nav">
+      <button type="button" class="btn" id="g-prev" ${state.chapter === 0 ? 'disabled' : ''}>Back</button>
+      <button type="button" class="btn ${done ? 'primary' : ''}" id="g-next" ${state.chapter === CHAPTERS.length - 1 ? 'disabled' : ''}>Next chapter</button>
+    </div>`;
+  $('g-prev').onclick = () => goChapter(state.chapter - 1);
+  $('g-next').onclick = () => goChapter(state.chapter + 1);
+  for (const b of $('lesson').querySelectorAll('[data-try]')) b.onclick = () => c.tries[Number(b.dataset.try)].act(api);
+  for (const b of $('lesson').querySelectorAll('[data-guess]')) {
+    b.onclick = () => {
+      state.guesses[c.id] = Number(b.dataset.guess);
+      renderGuide();
+    };
+  }
+  for (const b of $('chapters').querySelectorAll('[data-chap]')) b.onclick = () => goChapter(Number(b.dataset.chap));
+}
+
+function renderPredict(c) {
+  const g = state.guesses[c.id];
+  const answered = g !== undefined;
+  const opts = c.predict.options
+    .map((o, k) => {
+      const mark = !answered ? '' : k === c.predict.answer ? 'right' : k === g ? 'wrong' : '';
+      return `<button type="button" class="guess" data-guess="${k}" data-mark="${mark}" aria-pressed="${g === k}">${o}</button>`;
+    })
+    .join('');
+  const verdict = answered ? `<p class="why"><b>${g === c.predict.answer ? 'Right.' : 'Not quite.'}</b> ${c.predict.why} Now try it below.</p>` : '';
+  return `<div class="predict"><p class="q"><span class="n-label">Predict</span> ${c.predict.q}</p><div class="guesses">${opts}</div>${verdict}</div>`;
+}
+
+function goChapter(k) {
+  state.chapter = Math.max(0, Math.min(CHAPTERS.length - 1, k));
+  saveGuide();
+  renderGuide();
+  $('p-learn').scrollTop = 0;
+}
+
+function renderGlossary() {
+  $('glossary').innerHTML = GLOSSARY.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('');
+}
+
+$('census').onclick = (e) => {
+  const b = e.target.closest('[data-stat]');
+  if (!b) return;
+  const key = b.dataset.stat;
+  state.statHelp = state.statHelp === key ? null : key;
+  $('census-help').textContent = state.statHelp ? `${state.statHelp}: ${STAT_HELP[state.statHelp] ?? ''}` : 'Tap a number to see what it counts.';
+  updateCensus();
+};
+
+$('back-guide').onclick = () => {
+  state.fromGuide = false;
+  selectTab('learn');
+};
 
 window.__rnaWorld = state;
 start();
