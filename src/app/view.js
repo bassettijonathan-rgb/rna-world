@@ -59,6 +59,25 @@ export class View {
     this.onCamera?.();
   }
 
+  // Glide the camera to a point (world units) at a zoom in CSS pixels per site.
+  flyTo(x, y, zCss) {
+    const z = Math.min(140, zCss) * this.dpr;
+    this.anim = { from: { ...this.cam }, to: { x, y, z }, t0: performance.now(), dur: 900 };
+    this.fitted = false;
+  }
+
+  stepAnim() {
+    const a = this.anim;
+    if (!a) return;
+    const u = Math.min(1, (performance.now() - a.t0) / a.dur);
+    const e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+    // Zoom out a little on the way when the trip is long.
+    const lz = Math.log(a.from.z) + (Math.log(a.to.z) - Math.log(a.from.z)) * e;
+    this.cam = { x: a.from.x + (a.to.x - a.from.x) * e, y: a.from.y + (a.to.y - a.from.y) * e, z: Math.exp(lz) };
+    if (u >= 1) this.anim = null;
+    this.onCamera?.();
+  }
+
   zoomBy(f, sx = this.canvas.width / 2, sy = this.canvas.height / 2) {
     const [wx, wy] = this.toWorld(sx, sy);
     const minZ = (Math.min(this.canvas.width, this.canvas.height) / this.W) * 0.7;
@@ -97,6 +116,7 @@ export class View {
     let pinch = null;
     let lastTool = 0;
     c.addEventListener('pointerdown', (e) => {
+      this.anim = null;
       c.setPointerCapture(e.pointerId);
       this.pointers.set(e.pointerId, pos(e));
       if (this.pointers.size === 1) {
@@ -155,6 +175,7 @@ export class View {
       'wheel',
       (e) => {
         e.preventDefault();
+        this.anim = null;
         const [x, y] = pos(e);
         this.zoomBy(Math.exp(-e.deltaY * 0.0015), x, y);
       },
@@ -186,6 +207,7 @@ export class View {
   }
 
   draw() {
+    this.stepAnim();
     const { ctx, canvas } = this;
     const cw = canvas.width;
     const ch = canvas.height;

@@ -56,7 +56,7 @@ export function createSimServer(post) {
       lastTree = engine.step;
     }
     if (opts.region) msg.region = engine.region(...opts.region);
-    if (opts.inspect) msg.inspect = engine.inspect(opts.inspect[0], opts.inspect[1]);
+    if (opts.inspect) msg.inspect = engine.inspect(opts.inspect[0], opts.inspect[1], opts.inspect[2]);
     msg.params = engine.params;
     msg.preset = engine.preset;
     msg.seed = engine.seed;
@@ -108,6 +108,9 @@ export function createSimServer(post) {
       case 'frame':
         if (m.mode) mode = m.mode;
         frame(m);
+        break;
+      case 'locate':
+        post({ type: 'located', kind: m.kind, at: engine.locate(m.kind) });
         break;
       case 'validate':
         runValidation({

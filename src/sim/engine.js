@@ -207,7 +207,8 @@ export class Engine {
           break;
         }
       }
-      if (this.preset !== 'soup' && c.live >= 25) this.fire('replicase');
+      // A designed colony is not news; mark it so later events can follow.
+      if (this.preset !== 'soup' && c.live >= 25) this.flags.replicase = true;
     }
     if (this.flags.replicase && !this.flags.parasite && c.parasite >= 50 && c.parasite > c.live) this.fire('parasite');
     if (this.flags.replicase && !this.flags.extinct && c.live === 0) this.fire('extinct');
@@ -334,14 +335,24 @@ export class Engine {
     };
   }
 
-  inspect(x, y) {
+  // What is at (x, y). With `follow` (the sequence already on show), keep
+  // track of that strand if it has stepped to a neighbouring site, and say
+  // so if it is gone.
+  inspect(x, y, follow) {
     const w = this.world;
     if (w.kind === 'surface') {
       const xi = ((Math.floor(x) % w.W) + w.W) % w.W;
       const yi = ((Math.floor(y) % w.H) + w.H) % w.H;
-      const i = yi * w.W + xi;
-      if (!w.ph[i]) return { x: xi, y: yi, empty: true, food: w.food[i] };
-      return { x: xi, y: yi, strand: this.describeStrand(w.ph[i], w.lin[i], w.dph[i]), busy: w.busy[i] > 0, food: w.food[i] };
+      let i = yi * w.W + xi;
+      if (follow && w.ph[i]?.seq !== follow) {
+        let found = -1;
+        for (let k = 0; k < 8 && found < 0; k++) if (w.ph[w.nb[i * 8 + k]]?.seq === follow) found = w.nb[i * 8 + k];
+        if (found < 0) return { x: xi, y: yi, gone: true };
+        i = found;
+      }
+      const at = { x: i % w.W, y: Math.floor(i / w.W) };
+      if (!w.ph[i]) return { ...at, empty: true, food: w.food[i] };
+      return { ...at, strand: this.describeStrand(w.ph[i], w.lin[i], w.dph[i]), busy: w.busy[i] > 0, food: w.food[i] };
     }
     let best = null;
     let bd = Infinity;
@@ -359,6 +370,34 @@ export class Engine {
       strand: strands.length ? this.describeStrand(strands[0].p, strands[0].lin, strands[0].dp) : null,
       contents: strands.slice(0, 40).map((s) => ({ role: s.p.rep ? 'replicase' : s.lin > 0 ? 'parasite' : 'unreplicated', L: s.p.L })),
     };
+  }
+
+  // Find a site worth looking at, for the "Show me" buttons. The scan starts
+  // somewhere new each time but never touches the random numbers, so
+  // looking does not change the run.
+  locate(kind) {
+    const w = this.world;
+    if (w.kind !== 'surface') {
+      const want = (s) => (kind === 'parasite' ? !s.p.rep && s.lin > 0 : kind === 'replicase' ? s.p.rep && s.lin > 0 : true);
+      const v = w.ves.find((x) => x.strands.some(want)) ?? w.ves[0];
+      return v ? { x: v.x, y: v.y, vesicle: true } : null;
+    }
+    const N = w.N;
+    const start = (w.step * 7919 + (this.locates = (this.locates ?? 0) + 1) * 104729) % N;
+    const tests = {
+      replicase: [(i) => w.ph[i].rep && w.lin[i] > 0, (i) => w.ph[i].rep],
+      parasite: [(i) => !w.ph[i].rep && w.lin[i] > 0 && roleOf(w.ph[i]) === ROLE.parasite],
+      busy: [(i) => w.busy[i] > 0, (i) => w.dph[i]],
+      duplex: [(i) => w.dph[i]],
+      any: [() => true],
+    }[kind] ?? [() => true];
+    for (const test of tests) {
+      for (let k = 0; k < N; k++) {
+        const i = (start + k) % N;
+        if (w.ph[i] && test(i)) return { x: i % w.W, y: Math.floor(i / w.W) };
+      }
+    }
+    return null;
   }
 
   // Strands in a rectangle, for drawing them one by one when zoomed in.

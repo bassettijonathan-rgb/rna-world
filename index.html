@@ -32,6 +32,11 @@
     </div>
   </header>
 
+  <div class="narrator" id="narrator">
+    <p><span class="n-label">Now</span> <span id="n-now">Starting the simulation…</span></p>
+    <p><span class="n-label">Story</span> <span id="n-trend"></span></p>
+  </div>
+
   <section class="scope" aria-label="Microscope view of the surface">
     <div class="field" id="field" data-tool="look">
       <canvas id="view" aria-label="The mineral surface. Drag to move, pinch or scroll to zoom, tap a strand to inspect it."></canvas>
@@ -39,6 +44,7 @@
     <div class="legend" id="legend"></div>
     <div class="scale" id="scale"></div>
     <div class="cards" id="cards"></div>
+    <div class="toast" id="toast" role="status" hidden></div>
     <div class="tools" role="group" aria-label="Tools">
       <button class="chip" type="button" data-tool="look" aria-pressed="true">Look</button>
       <button class="chip" type="button" data-tool="pour" aria-pressed="false">Pour food</button>
@@ -53,14 +59,24 @@
 
   <section class="bench" aria-label="Lab bench">
     <div class="tabs" role="tablist">
-      <button role="tab" type="button" id="t-lab" aria-selected="true" aria-controls="p-lab">Lab</button>
+      <button role="tab" type="button" id="t-learn" aria-selected="true" aria-controls="p-learn">Learn</button>
+      <button role="tab" type="button" id="t-lab" aria-selected="false" aria-controls="p-lab">Lab</button>
       <button role="tab" type="button" id="t-life" aria-selected="false" aria-controls="p-life">Life</button>
       <button role="tab" type="button" id="t-strand" aria-selected="false" aria-controls="p-strand">Strand</button>
       <button role="tab" type="button" id="t-checks" aria-selected="false" aria-controls="p-checks">Checks</button>
       <button role="tab" type="button" id="t-log" aria-selected="false" aria-controls="p-log">Log</button>
     </div>
 
-    <div class="panel" role="tabpanel" id="p-lab" aria-labelledby="t-lab">
+    <div class="panel" role="tabpanel" id="p-learn" aria-labelledby="t-learn">
+      <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+      <article class="lesson" id="lesson"></article>
+      <details class="group words">
+        <summary><h2>Words used here</h2></summary>
+        <dl class="glossary" id="glossary"></dl>
+      </details>
+    </div>
+
+    <div class="panel" role="tabpanel" id="p-lab" aria-labelledby="t-lab" hidden>
       <div class="group">
         <h2>Start from</h2>
         <div class="presets" id="presets"></div>
@@ -96,6 +112,7 @@
 
     <div class="panel" role="tabpanel" id="p-life" aria-labelledby="t-life" hidden>
       <div class="census" id="census"></div>
+      <p class="note" id="census-help">Tap a number to see what it counts.</p>
       <div class="group">
         <h2>Population</h2>
         <canvas class="chart" id="pop" height="180"></canvas>
@@ -109,6 +126,7 @@
     </div>
 
     <div class="panel" role="tabpanel" id="p-strand" aria-labelledby="t-strand" hidden>
+      <button type="button" class="btn back" id="back-guide" hidden>← Back to the guide</button>
       <div id="inspector">
         <p class="empty">Zoom in and tap a strand to see how it folds.</p>
       </div>

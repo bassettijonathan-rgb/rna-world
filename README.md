@@ -30,6 +30,24 @@ Open `dist/index.html` in a browser, or play it as a claude.ai Artifact
 - **Checks** runs the five validation experiments in the background.
 - The same seed and settings give the same run, step for step.
 
+## Learning as you watch
+
+The **Learn** tab is a short course in nine chapters, from the bare clay to
+the validation checks: what a fold is, how a replicase reads a tag, why
+copying waits for the cool spell, how a family takes off, where parasites
+come from, why space protects cooperation, the error threshold, vesicles,
+and how the model is checked. Each chapter has buttons that set the scene
+(“Show me a replicase” flies the microscope to one and opens its fold), a
+question to answer before trying it, and something to watch for that ticks
+itself off when it happens.
+
+Above the field, a two-line narrator says what the surface is doing right
+now (warm or cool spell, what that allows) and what the population is doing
+(lift-off, spreading, parasite takeover, collapse). Event cards have Show
+me and Explain buttons, the numbers on the Life tab explain themselves when
+tapped, and the fold diagram labels the recognition loop and the 3′ tag.
+A glossary sits at the bottom of the Learn tab.
+
 ## The model
 
 | Piece | What the simulation does |

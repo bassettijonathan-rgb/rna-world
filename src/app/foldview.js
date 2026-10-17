@@ -204,6 +204,38 @@ export function drawFold(ctx, db, bx, by, bw, bh, opts = {}) {
       ctx.textBaseline = 'middle';
       for (let q = 0; q < L.n; q++) ctx.fillText(opts.seq[q], X(q), Y(q) + 0.5);
     }
+    // Labels for the marked stretches, pushed outward from the middle of
+    // the drawing so they sit clear of the strand.
+    let mx = 0;
+    let my = 0;
+    for (let q = 0; q < L.n; q++) {
+      mx += X(q);
+      my += Y(q);
+    }
+    mx /= L.n;
+    my /= L.n;
+    for (const m of opts.marks ?? []) {
+      if (!m.label) continue;
+      const mid = (m.from + m.to) >> 1;
+      let dx = X(mid) - mx;
+      let dy = Y(mid) - my;
+      const d = Math.hypot(dx, dy) || 1;
+      dx /= d;
+      dy /= d;
+      const fs = Math.max(10, Math.min(13, s * 0.6));
+      ctx.font = `600 ${fs}px ui-sans-serif, system-ui, sans-serif`;
+      const tw = ctx.measureText(m.label).width;
+      let lx = X(mid) + dx * s * 2.2;
+      let ly = Y(mid) + dy * s * 2.2;
+      lx = Math.max(bx + tw / 2 + 4, Math.min(bx + bw - tw / 2 - 4, lx));
+      ly = Math.max(by + fs, Math.min(by + bh - fs, ly));
+      ctx.fillStyle = 'rgba(4,8,11,0.82)';
+      ctx.fillRect(lx - tw / 2 - 4, ly - fs * 0.7, tw + 8, fs * 1.4);
+      ctx.fillStyle = m.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(m.label, lx, ly);
+    }
     // 5′ and 3′ ends.
     if (opts.ends) {
       ctx.fillStyle = opts.endColor ?? 'rgba(200,235,255,0.7)';

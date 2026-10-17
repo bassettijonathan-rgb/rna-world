@@ -59,12 +59,24 @@ for (const [name, viewport] of [
   await page.waitForTimeout(800);
   const inspected = await frame.evaluate(() => !!document.querySelector('#inspector .facts, #inspector .empty'));
   if (shots) await page.screenshot({ path: `${shots}/${name}-zoom.png` });
+  // The guide: open chapter 2 and use its "Show me a replicase" button.
+  await frame.evaluate(() => {
+    document.getElementById('t-learn').click();
+    document.querySelector('[data-chap="1"]').click();
+    document.querySelector('[data-try="0"]').click();
+  });
+  await page.waitForTimeout(1500);
+  const guided = await frame.evaluate(() => ({
+    chapters: document.querySelectorAll('#chapters .chap').length,
+    shown: !!document.querySelector('#inspector .facts'),
+    narrated: document.getElementById('n-now').textContent.length > 20,
+  }));
   await frame.evaluate(() => document.getElementById('z-fit').click());
   await frame.evaluate(() => document.getElementById('t-life').click());
   await page.waitForTimeout(700);
   if (shots) await page.screenshot({ path: `${shots}/${name}.png`, fullPage: true });
-  const ok = errors.length === 0 && info.host === 'worker' && step2 > info.step && info.step > 0 && info.overflowX <= 0 && inspected;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}: host=${info.host} steps ${info.step} → ${step2}, overflowX=${info.overflowX}, field=${Math.round(info.fieldW)}px, inspector=${inspected}`);
+  const ok = errors.length === 0 && info.host === 'worker' && step2 > info.step && info.step > 0 && info.overflowX <= 0 && inspected && guided.chapters > 5 && guided.shown && guided.narrated;
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}: host=${info.host} steps ${info.step} → ${step2}, overflowX=${info.overflowX}, field=${Math.round(info.fieldW)}px, inspector=${inspected}, guide=${JSON.stringify(guided)}`);
   for (const e of errors) console.log('   error:', e);
   if (!ok) failed++;
   await page.close();
